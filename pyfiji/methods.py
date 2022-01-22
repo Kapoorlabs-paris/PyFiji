@@ -31,7 +31,7 @@ class Mtrack_exporter(object):
           self.imagename = imagename  
           self.image = imread(imagename)
           self.Name = Name
-          self.kymo_image = np.empty(self.image.shape, dtype='uint16')
+          self.kymo_image = np.zeros(self.image.shape, dtype='uint16')
          
           print('image read')
           
