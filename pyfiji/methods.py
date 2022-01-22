@@ -5,46 +5,142 @@ Created on Sat Jan 22 11:27:36 2022
 
 @author: varunkapoor
 """
-from tifffile import imread
-import pandas as pd
-from scipy.ndimage import  median_filter
-from skimage.morphology import skeletonize
-from skimage.measure import regionprops
+from tifffile import imread, imwrite
+import csv
+import napari
+import glob
 import os
-from skimage.segmentation import find_boundaries
-import matplotlib.pyplot as plt
-from matplotlib import cm
+import cv2
+import random
+import sys
+import numpy as np
+import json
+from scipy import spatial
+from pathlib import Path
+from scipy import spatial
+import itertools
+from napari.qt.threading import thread_worker
+import matplotlib.pyplot  as plt
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QComboBox, QPushButton, QSlider
+import h5py
+from skimage import measure
+from scipy.ndimage import gaussian_filter
+import pandas as pd
+import imageio
+from .napari_animation import AnimationWidget
+from dask.array.image import imread as daskread
+from skimage.measure import label, regionprops
 
-def kymo_mtrack_export(fname, savedir, median_radius = 2):
+Boxname = 'Kymographs'
+MTrack_label = 'MTrack_kymo'
+
+class Mtrack_exporter(object):
+
     
-    image = imread(fname)
-    Name = os.path.basename(os.path.splitext(fname)[0])
-    #Apply median filter to smooth the image
-    median_image = median_filter(image, size = median_radius)
-    #Apply sobel to get the edge image
-    edge_image = find_boundaries(median_image)
-    #Create a pixel level thich binary image
-    skeleton_image = skeletonize(edge_image)
-    #Use region props for getting the properties of the binary image
-    properties = regionprops(skeleton_image)
-    #Kymograph contains length vs time
-    coordinates_lt = [prop.coords for prop in properties]
-    #Sort the coordinates by time
-    coordinates_lt = sorted(coordinates_lt, key=lambda k: k[1])
-    doubleplot(image, skeleton_image, 'original_kymograph', 'for_mtrack_export')    
-    df = pd.dataframe(coordinates_lt, columns = ['Length', 'Time'])
-    #Save the data as Mtrack readable text file
-    df.to_csv(savedir + '/' + Name + 'Mtrack' +  '.csv')          
-      
+    def __init__(self, viewer, imagename, savedir, save = False, newimage = True):
+     
+          self.save = save
+          self.newimage = newimage
+          self.viewer = viewer
+           
+          print('reading image')      
+          self.imagename = imagename  
+          self.image = imread(imagename)
+          self.Name = os.path.basename(os.path.splitext(self.imagename)[0])
+          try:
+              self.kymo_image = imread(savedir + self.Name + MTrack_label)
+          except:    
+              self.kymo_image = np.zeros_like(self.image)
+          print('image read')
+          
+            
+          self.savedir = savedir
+          
+          
+          self.kymo_create()
+    def kymo_create(self):
+
+        
+                
+                
+                if self.save == True:
+ 
+                        self.kymo_data = self.viewer.layers[self.Name + MTrack_label].data
+                       
+        
+                if self.newimage == True:
+                     for layer in list(self.viewer.layers):
+
+                            self.viewer.layers.remove(layer) 
+                    
+                if self.save == False:
+                        self.viewer.add_image(self.image, name = self.Name)
+                        self.viewer.add_labels(self.kymo_image, name = self.Name + MTrack_label)
+
+                      
+    def save_kymo_csv(self):
+            
+        
+         edge_image = label(self.kymo_image)
+         largestCC = edge_image == np.argmax(np.bincount(edge_image.flat)[1:])+1
+         largetslabel = np.max(largestCC)
+         #Use region props for getting the properties of the binary image
+         properties = regionprops(edge_image.astype('uint16'))
+         #Kymograph contains length vs time
+         coordinates_lt = []
+         for prop in properties:
+             if prop.label == largetslabel:
+                 
+                  coordinates_lt.append(prop.coords)
+         coordinates_lt = np.asarray(coordinates_lt)         
+         coordinates_lt = coordinates_lt[0]
+         #Sort the coordinates by time
+         coordinates_lt = sorted(coordinates_lt, key=lambda k: k[1])
+         df = pd.DataFrame(coordinates_lt, columns = ['Length', 'Time'])
+         #Save the data as Mtrack readable text file
+         df.to_csv(self.savedir + '/' + self.Name + MTrack_label +  '.csv')
+         imwrite(self.savedir + '/' + self.Name + MTrack_label + '.tif', self.kymo_image.astype('uint8'))
+
+
+def export(sourcedir, savedir):
+
+    Imageids = []
+    Boxname = 'ImageIDBox'
+    Path(savedir).mkdir(exist_ok = True)
     
-def doubleplot(imageA, imageB, titleA, titleB):
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-    ax = axes.ravel()
-    ax[0].imshow(imageA, cmap=cm.Spectral)
-    ax[0].set_title(titleA)
     
-    ax[1].imshow(imageB, cmap=cm.Spectral)
-    ax[1].set_title(titleB)
     
-    plt.tight_layout()
-    plt.show()   
+    Raw_path = os.path.join(sourcedir, '*tif')
+    X = glob.glob(Raw_path)
+    for imagename in X:
+             Imageids.append(imagename)
+    
+    imageidbox = QComboBox()   
+    imageidbox.addItem(Boxname)   
+    tracksavebutton = QPushButton('Save Kymo_csv')
+    
+    for i in range(0, len(Imageids)):
+    
+    
+         imageidbox.addItem(str(Imageids[i]))
+            
+            
+    viewer = napari.Viewer()        
+    viewer.window.add_dock_widget(imageidbox, name="Image", area='bottom')    
+    viewer.window.add_dock_widget(tracksavebutton, name="Save Clicks", area='bottom')
+    imageidbox.currentIndexChanged.connect(
+             lambda trackid = imageidbox: Mtrack_exporter(
+                     viewer,
+                      imageidbox.currentText(),
+                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, False, True ))     
+    
+    tracksavebutton.clicked.connect(
+            lambda trackid= tracksavebutton:Mtrack_exporter(
+                     viewer,
+                      imageidbox.currentText(),
+                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, True, False ))
+     
