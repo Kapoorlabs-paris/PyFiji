@@ -95,10 +95,18 @@ class Mtrack_exporter(object):
             
     def save_kymo_csv(self):
             
-                     coordinates_tl = self.viewer.layers[self.Name + MTrack_label].data
+                     try:
+                         
+                         coordinates_tl = self.viewer.layers[MTrack_label_points].data
+                         coordinates_tl = sorted(coordinates_tl, key=lambda k: k[0], reverse = True)
+                         coordinates_tl = np.asarray(coordinates_tl)
+                            
+                     except:       
+            
+                         coordinates_tl = self.viewer.layers[self.Name + MTrack_label].data
 
-                     coordinates_tl = sorted(coordinates_tl, key=lambda k: k[0], reverse = True)
-                     coordinates_tl = np.asarray(coordinates_tl)[0,:]   
+                         coordinates_tl = sorted(coordinates_tl, key=lambda k: k[0], reverse = True)
+                         coordinates_tl = np.asarray(coordinates_tl)[0,:]   
                      finaldf = pd.DataFrame(coordinates_tl, columns = ['Time', 'Length'])
                      #Save the data as Mtrack readable text file
                      finaldf.to_csv(self.savedir + '/' + self.Name + MTrack_label +  '.csv', index = None)
