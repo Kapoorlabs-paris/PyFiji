@@ -31,7 +31,7 @@ class Mtrack_exporter(object):
           self.imagename = imagename  
           self.image = imread(imagename)
           self.Name = Name
-          self.kymo_image = np.zeros(self.image.shape, dtype='uint16')
+          self.viewer.add_shapes(shape_type='path', edge_width=4, edge_color=['red', 'blue'])
          
           print('image read')
           
@@ -54,25 +54,14 @@ class Mtrack_exporter(object):
                     
                 if self.save == False:
                         self.viewer.add_image(self.image, name = self.Name)
-                        self.viewer.add_labels(self.kymo_image, name = self.Name + MTrack_label)
+                        self.shapes_layer = self.viewer.add_shapes(shape_type='path', edge_width=4, edge_color=['red', 'blue'], name = self.Name + MTrack_label)
 
                       
     def save_kymo_csv(self):
             
         
-         edge_image = label(self.kymo_image)
-         largestCC = edge_image == np.argmax(np.bincount(edge_image.flat)[1:])+1
-         largetslabel = np.max(largestCC)
-         #Use region props for getting the properties of the binary image
-         properties = regionprops(edge_image.astype('uint16'))
-         #Kymograph contains length vs time
-         coordinates_lt = []
-         for prop in properties:
-             if prop.label == largetslabel:
-                 
-                  coordinates_lt.append(prop.coords)
-         coordinates_lt = np.asarray(coordinates_lt)         
-         coordinates_lt = coordinates_lt[0]
+         coordinates_lt = self.viewer.layers[self.Name + MTrack_label].data
+         
          #Sort the coordinates by time
          coordinates_lt = sorted(coordinates_lt, key=lambda k: k[1])
          df = pd.DataFrame(coordinates_lt, columns = ['Length', 'Time'])
