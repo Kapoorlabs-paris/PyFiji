@@ -6,42 +6,22 @@ Created on Sat Jan 22 11:27:36 2022
 @author: varunkapoor
 """
 from tifffile import imread, imwrite
-import csv
 import napari
 import glob
 import os
-import cv2
-import random
-import sys
 import numpy as np
-import json
-from scipy import spatial
 from pathlib import Path
-from scipy import spatial
-import itertools
-from napari.qt.threading import thread_worker
-import matplotlib.pyplot  as plt
-from matplotlib.backends.backend_qt5agg import \
-    FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QComboBox, QPushButton, QSlider
-import h5py
-from skimage import measure
-from scipy.ndimage import gaussian_filter
+from qtpy.QtWidgets import QComboBox, QPushButton
 import pandas as pd
-import imageio
-from .napari_animation import AnimationWidget
-from dask.array.image import imread as daskread
 from skimage.measure import label, regionprops
 
 Boxname = 'Kymographs'
-MTrack_label = 'MTrack_kymo'
+MTrack_label = '_MTrack_kymo'
 
 class Mtrack_exporter(object):
 
     
-    def __init__(self, viewer, imagename, savedir, save = False, newimage = True):
+    def __init__(self, viewer, imagename, Name, savedir, save = False, newimage = True):
      
           self.save = save
           self.newimage = newimage
@@ -50,11 +30,9 @@ class Mtrack_exporter(object):
           print('reading image')      
           self.imagename = imagename  
           self.image = imread(imagename)
-          self.Name = os.path.basename(os.path.splitext(self.imagename)[0])
-          try:
-              self.kymo_image = imread(savedir + self.Name + MTrack_label)
-          except:    
-              self.kymo_image = np.zeros_like(self.image)
+          self.Name = Name
+          self.kymo_image = np.empty(self.image.shape, dtype='uint16')
+         
           print('image read')
           
             
@@ -63,13 +41,10 @@ class Mtrack_exporter(object):
           
           self.kymo_create()
     def kymo_create(self):
-
-        
-                
                 
                 if self.save == True:
  
-                        self.kymo_data = self.viewer.layers[self.Name + MTrack_label].data
+                        self.save_kymo_csv
                        
         
                 if self.newimage == True:
@@ -109,7 +84,6 @@ class Mtrack_exporter(object):
 def export(sourcedir, savedir):
 
     Imageids = []
-    Boxname = 'ImageIDBox'
     Path(savedir).mkdir(exist_ok = True)
     
     
