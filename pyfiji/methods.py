@@ -20,45 +20,54 @@ from scipy.interpolate import CubicSpline, interp1d
 Boxname = 'Kymographs'
 MTrack_label = '_MTrack_kymo'
 MTrack_label_points = "_points"
-class Mtrack_exporter(object):
 
+
+class Image_opener(object):
     
-    def __init__(self, viewer, imagename, Name, savedir, save = False, fit = False, newimage = True):
+    
+     def __init__(self, viewer, imagename, Name):
      
-          self.save = save
-          self.newimage = newimage
           self.viewer = viewer
-          self.fit = fit 
           print('reading image')      
           self.imagename = imagename  
           self.image = imread(imagename)
           self.Name = Name
-          
-         
           print('image read')
+          for layer in list(self.viewer.layers):
+
+                            self.viewer.layers.remove(layer)  
+          self.viewer.add_image(self.image, name = self.Name)
+          self.shapes_layer = self.viewer.add_shapes(shape_type='path', edge_width=2, edge_color=['red', 'blue'], name = self.Name + MTrack_label)
           
             
+            
+class Mtrack_exporter(object):
+
+    
+    def __init__(self, viewer, Name, savedir, save = False, fit = False):
+     
+          self.save = save
+          self.viewer = viewer
+          self.fit = fit 
+          self.Name = Name
+          self.image = self.viewer.layers[self.Name].data  
+          self.shapes_layer = self.viewer.layers[self.Name + MTrack_label].data
           self.savedir = savedir
           
           
           self.kymo_create()
     def kymo_create(self):
                 
-                if self.save == True:
+                if self.save:
                         
                         self.save_kymo_csv()
                        
                 if self.fit:
                     
                     self.fit_kymo()
-                if self.newimage == True:
-                     for layer in list(self.viewer.layers):
-
-                            self.viewer.layers.remove(layer) 
+                
                     
-                if self.save == False:
-                        self.viewer.add_image(self.image, name = self.Name)
-                        self.shapes_layer = self.viewer.add_shapes(shape_type='path', edge_width=2, edge_color=['red', 'blue'], name = self.Name + MTrack_label)
+                
 
     def fit_kymo(self):
         
@@ -70,17 +79,22 @@ class Mtrack_exporter(object):
          time_length = [(i,interpolate_length(i)) for i in range(self.image.shape[0]) ]
 
          df = pd.DataFrame(time_length, columns = ['Time', 'Length'])
-
+         for layer in list(self.viewer.layers):
+                     if MTrack_label_points in layer.name:
+                            self.viewer.layers.remove(layer)
+                           
+                    
          self.viewer.add_points(time_length, face_color = 'red', edge_color = 'green', size = 1, name = MTrack_label_points)
             
             
-         self.final_data = self.viewer.layers[MTrack_label_points].data 
-                
+         final_data = self.viewer.layers[MTrack_label_points].data 
+         finaldf = pd.DataFrame(final_data, columns = ['Time', 'Length'])
+         #Save the data as Mtrack readable text file
+         finaldf.to_csv(self.savedir + '/' + self.Name + MTrack_label +  '.csv', index = None)       
+            
+            
     def save_kymo_csv(self):
             
-         for layer in list(self.viewer.layers):
-            
-            if MTrack_label_points not in layer.name:
                      coordinates_tl = self.viewer.layers[self.Name + MTrack_label].data
 
                      coordinates_tl = sorted(coordinates_tl, key=lambda k: k[0], reverse = True)
@@ -88,10 +102,8 @@ class Mtrack_exporter(object):
                      finaldf = pd.DataFrame(coordinates_tl, columns = ['Time', 'Length'])
                      #Save the data as Mtrack readable text file
                      finaldf.to_csv(self.savedir + '/' + self.Name + MTrack_label +  '.csv', index = None)
-            else:            
-                     finaldf = pd.DataFrame(self.final_data, columns = ['Time', 'Length'])
-                     #Save the data as Mtrack readable text file
-                     finaldf.to_csv(self.savedir + '/' + self.Name + MTrack_label +  '.csv', index = None)
+                       
+                     
       
 
 
@@ -111,7 +123,7 @@ def export(sourcedir, savedir):
     imageidbox = QComboBox()   
       
     tracksavebutton = QPushButton('Save Kymo_csv')
-    fitbutton = QPushButton('Fit Spline')
+    fitbutton = QPushButton('Fit Spline and save')
     imageidbox.addItem(Boxname) 
     for i in range(0, len(Imageids)):
     
@@ -124,20 +136,20 @@ def export(sourcedir, savedir):
     viewer.window.add_dock_widget(tracksavebutton, name="Save Clicks", area='top')
     viewer.window.add_dock_widget(fitbutton, name="Fit Splines", area='top') 
     imageidbox.currentIndexChanged.connect(
-             lambda trackid = imageidbox: Mtrack_exporter(
+             lambda trackid = imageidbox: Image_opener(
                      viewer,
                       imageidbox.currentText(),
-                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, False, False, True ))     
+                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]) ))     
     
     tracksavebutton.clicked.connect(
             lambda trackid= tracksavebutton:Mtrack_exporter(
                      viewer,
-                      imageidbox.currentText(),
-                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, True, False, False ))
+                      
+                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, True, False ))
     
     fitbutton.clicked.connect(
-            lambda trackid= tracksavebutton:Mtrack_exporter(
+            lambda trackid= fitbutton:Mtrack_exporter(
                      viewer,
-                      imageidbox.currentText(),
-                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, False, True, False ))
+                  
+                           os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, False, True ))
      
