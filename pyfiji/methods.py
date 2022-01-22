@@ -12,7 +12,7 @@ from skimage.morphology import skeletonize
 from skimage.measure import regionprops
 import os
 
-def kymo_matrack_export(fname, savedir, median_radius = 2):
+def kymo_mtrack_export(fname, savedir, median_radius = 2):
     
     image = imread(fname)
     Name = os.path.basename(os.path.splitext(fname)[0])
