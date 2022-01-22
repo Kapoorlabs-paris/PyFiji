@@ -23,8 +23,7 @@ setup(
         "scipy",
         "tifffile",
         "matplotlib",
-        "opencv-python",
-        "napari"
+        "opencv-python"
        
     ],
  
