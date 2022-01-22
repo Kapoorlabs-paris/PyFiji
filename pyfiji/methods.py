@@ -71,7 +71,8 @@ class Mtrack_exporter(object):
 
 
 def export(sourcedir, savedir):
-
+    
+    func = Mtrack_exporter
     Imageids = []
     Path(savedir).mkdir(exist_ok = True)
     
@@ -96,13 +97,13 @@ def export(sourcedir, savedir):
     viewer.window.add_dock_widget(imageidbox, name="Image", area='bottom')    
     viewer.window.add_dock_widget(tracksavebutton, name="Save Clicks", area='bottom')
     imageidbox.currentIndexChanged.connect(
-             lambda trackid = imageidbox: Mtrack_exporter(
+             lambda trackid = imageidbox: func(
                      viewer,
                       imageidbox.currentText(),
                            os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, False, True ))     
     
     tracksavebutton.clicked.connect(
-            lambda trackid= tracksavebutton:Mtrack_exporter(
+            lambda trackid= tracksavebutton:func(
                      viewer,
                       imageidbox.currentText(),
                            os.path.basename(os.path.splitext(imageidbox.currentText())[0]), savedir, True, False ))
